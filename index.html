@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Deco Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Spline+Sans+Mono:wght@400;500&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1><span class="dot"></span>GNTデコスタジオ</h1>
+    <p>画像の上にスタンプを重ねて・動かして・保存</p>
+  </header>
+
+  <div class="wrap">
+    <div class="stage-card">
+      <div class="stage-scroll" id="stageScroll">
+        <div class="stage-pad">
+          <div id="stage"><img id="baseImg" alt="背景" /></div>
+        </div>
+        <div class="empty" id="emptyState">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" stroke="none"/><path d="m21 15-5-5L5 21"/></svg>
+          <div><b>まず背景画像をアップロードしてください</b></div>
+          <div class="hint">右側の「背景画像をアップロード」を押すか<br>この枠に画像ファイルをドラッグ＆ドロップしてください。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="group">
+        <h2>キャンバス</h2>
+        <button class="btn primary" id="btnBase">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          背景画像をアップロード
+        </button>
+        <div class="ctrl" id="zoomCtrl" style="display:none">
+          <label>背景の表示サイズ <span id="zoomVal">100%</span></label>
+          <input type="range" id="zoomRange" min="25" max="300" value="100">
+        </div>
+        <div class="btn-row" id="zoomBtns" style="display:none">
+          <button class="btn" id="btnZoomOut">－ 縮小</button>
+          <button class="btn" id="btnZoomFit">全体表示</button>
+          <button class="btn" id="btnZoomIn">＋ 拡大</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>スタンプを選ぶ</h2>
+        <div class="palette" id="palette"></div>
+        <button class="btn ghost" id="btnAdd" style="margin-top:12px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          自分の画像を追加
+        </button>
+        <p class="hint" style="margin-top:8px">スタンプを押すとキャンバスに追加されます。</p>
+      </div>
+
+      <div class="group" id="editGroup" style="display:none">
+        <h2>選択中のスタンプ</h2>
+        <div class="ctrl"><label>サイズ <span id="sizeVal">30%</span></label><input type="range" id="sizeRange" min="3" max="150" value="30"></div>
+        <div class="ctrl"><label>回転 <span id="rotVal">0°</span></label><input type="range" id="rotRange" min="-180" max="180" value="0"></div>
+        <div class="ctrl"><label>透明度 <span id="opVal">100%</span></label><input type="range" id="opRange" min="0" max="100" value="100"></div>
+        <div class="btn-row">
+          <button class="btn" id="btnFlip">↔ 左右反転</button>
+          <button class="btn" id="btnDelete">🗑 削除</button>
+        </div>
+        <p class="hint" style="margin-top:10px">スタンプをドラッグして移動、角の点でサイズ・回転を調整できます。</p>
+      </div>
+
+      <div class="group">
+        <h2>書き出し</h2>
+        <button class="btn primary" id="btnDownload" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+          PNGでダウンロード
+        </button>
+        <p class="hint" style="margin-top:10px">元画像の解像度のまま合成して保存します（表示サイズは保存結果に影響しません）。</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>すべての処理はブラウザ内で行われます — 画像はサーバーに送信されません。</footer>
+
+  <input type="file" id="fileBase" accept="image/*" hidden>
+  <input type="file" id="fileAdd" accept="image/*" hidden multiple>
+
+<script>
+/* ============================================================================
+   ★ 기본 스티커 목록 — 수정/추가 방법 (폴더 방식) ★
+   ----------------------------------------------------------------------------
+   - 형식 :  { name:'표시이름', src:'stickers/파일명.png' },
+   - 추가 :  ① stickers 폴더에 PNG(투명배경 권장)를 넣고
+            ② 아래 목록에 줄을 하나 더 적으면 끝. (격자에 자동 반영)
+   - 삭제 :  해당 줄을 지웁니다. (마지막 줄 빼고 줄 끝에 쉼표 필요)
+   - 주의 :  파일명/경로는 대소문자까지 정확히 일치해야 합니다.
+   ============================================================================ */
+const STICKERS = [
+  { name:'GVC',     src:'stickers/GVC.png' },
+  { name:'jump',    src:'stickers/jumpup.png' },
+  { name:'oneteam', src:'stickers/oneteam.png' },
+  { name:'oneteam', src:'stickers/mvp_d.png' },
+  { name:'oneteam', src:'stickers/mvp_h.png' },
+  { name:'oneteam', src:'stickers/levelup.png' },
+  { name:'oneteam', src:'stickers/challenge.png' }
+  // , { name:'새이름', src:'stickers/새파일.png' }
+];
+
+(() => {
+  const $ = s => document.querySelector(s);
+  const stage = $('#stage'), baseImg = $('#baseImg'), empty = $('#emptyState'), scroll = $('#stageScroll');
+  const editGroup = $('#editGroup');
+
+  // 表示状態：fit=zoom1.0のときの表示サイズ、zoom=ユーザー倍率
+  const view = { natW:0, natH:0, fitW:0, fitH:0, zoom:1, ready:false };
+  // overlay座標はすべて「背景に対する比率」で保持（背景サイズが変わっても固定される）
+  let overlays = [], selected = null;
+
+  const stageW = () => view.fitW * view.zoom;
+  const stageH = () => view.fitH * view.zoom;
+
+  /* ---- スタンプパレット ---- */
+  const palette = $('#palette');
+  STICKERS.forEach(s => {
+    const sw = document.createElement('div'); sw.className='swatch'; sw.title=s.name;
+    const img = new Image(); img.alt=s.name;
+    img.onload = () => sw.appendChild(img);
+    img.onerror = () => { sw.classList.add('missing'); sw.textContent = s.src||s.name; };
+    img.src = s.src;
+    sw.onclick = () => { if(view.ready) addOverlay(s.src, s.name); else alert('まず背景画像をアップロードしてください。'); };
+    palette.appendChild(sw);
+  });
+
+  /* ---- 背景の読み込み ---- */
+  $('#btnBase').onclick = () => $('#fileBase').click();
+  $('#fileBase').onchange = e => { if(e.target.files[0]) loadBase(e.target.files[0]); };
+  function loadBase(file){
+    const url = URL.createObjectURL(file);
+    baseImg.onload = () => {
+      view.natW = baseImg.naturalWidth; view.natH = baseImg.naturalHeight;
+      view.zoom = 1; view.ready = true;
+      stage.style.display='block'; empty.style.display='none';
+      computeFit(); layout();
+      $('#btnDownload').disabled = false;
+      $('#zoomCtrl').style.display='block'; $('#zoomBtns').style.display='flex';
+      $('#zoomRange').value = 100; $('#zoomVal').textContent='100%';
+    };
+    baseImg.src = url;
+  }
+
+  function computeFit(){
+    // 枠内に画像全体が収まる倍率（zoom=1基準）
+    const availW = Math.max(60, scroll.clientWidth - 56);
+    const availH = Math.max(60, scroll.clientHeight - 56);
+    const f = Math.min(availW/view.natW, availH/view.natH, 1.2);
+    view.fitW = view.natW * f; view.fitH = view.natH * f;
+  }
+
+  function layout(){
+    const w = stageW(), h = stageH();
+    stage.style.width = w+'px'; stage.style.height = h+'px';
+    baseImg.style.width = w+'px'; baseImg.style.height = h+'px';
+    overlays.forEach(render);
+  }
+
+  // ウィンドウのリサイズ時のみ再計算（編集中はガタつかない）
+  let rT; window.addEventListener('resize', () => {
+    if(!view.ready) return;
+    clearTimeout(rT); rT = setTimeout(()=>{ computeFit(); layout(); }, 120);
+  });
+
+  /* ---- 背景の拡大縮小 ---- */
+  function setZoom(pct){
+    pct = Math.min(300, Math.max(25, Math.round(pct)));
+    view.zoom = pct/100;
+    $('#zoomRange').value = pct; $('#zoomVal').textContent = pct+'%';
+    layout();
+  }
+  $('#zoomRange').oninput = e => setZoom(+e.target.value);
+  $('#btnZoomIn').onclick  = () => setZoom(view.zoom*100 + 15);
+  $('#btnZoomOut').onclick = () => setZoom(view.zoom*100 - 15);
+  $('#btnZoomFit').onclick = () => { setZoom(100); scroll.scrollTo({left:0,top:0}); };
+
+  /* ---- 自分の画像を追加 ---- */
+  $('#btnAdd').onclick = () => { if(!view.ready){alert('まず背景画像をアップロードしてください。');return;} $('#fileAdd').click(); };
+  $('#fileAdd').onchange = e => { [...e.target.files].forEach(f=>addOverlay(URL.createObjectURL(f),(f.name||'スタンプ').replace(/\.[^.]+$/,''))); e.target.value=''; };
+
+  /* ---- overlay追加（比率座標） ---- */
+  function addOverlay(src, name){
+    const img = new Image(); // crossOrigin は付けない（同一サイト画像なら不要。付けると file:// やCORS未対応時に読み込み失敗する）
+    img.onerror = () => alert('スタンプ画像を読み込めませんでした:\n' + src + '\n\nファイル名・フォルダ・大文字小文字が一致しているか確認してください。');
+    img.onload = () => {
+      const aspect = (img.naturalHeight||1)/(img.naturalWidth||1);
+      const o = { img, src, name, cx:0.5, cy:0.5, w:0.3, aspect, rot:0, op:1, flip:false };
+      const el = document.createElement('div'); el.className='ovl';
+      el.innerHTML = `<img src="${src}" alt=""><div class="handle h-rotate"></div><div class="handle h-scale"></div>`;
+      stage.appendChild(el); o.el = el;
+      overlays.push(o); bindOverlay(o); render(o); select(o);
+    };
+    img.src = src;
+  }
+
+  function render(o){
+    const W = stageW(), H = stageH();
+    const pw = o.w * W, ph = pw * o.aspect;
+    o.el.style.width = pw+'px'; o.el.style.height = ph+'px';
+    o.el.style.left = (o.cx*W - pw/2)+'px';
+    o.el.style.top  = (o.cy*H - ph/2)+'px';
+    o.el.style.transform = `rotate(${o.rot}deg)`;
+    o.el.style.opacity = o.op;
+    o.el.querySelector('img').style.transform = o.flip ? 'scaleX(-1)' : 'none';
+  }
+
+  function select(o){
+    selected = o; overlays.forEach(v=>v.el.classList.toggle('selected', v===o));
+    editGroup.style.display = o ? 'block' : 'none';
+    if(o){
+      $('#sizeRange').value = Math.min(150, Math.max(3, Math.round(o.w*100)));
+      $('#sizeVal').textContent = Math.round(o.w*100)+'%';
+      $('#rotRange').value = o.rot; $('#rotVal').textContent = o.rot+'°';
+      $('#opRange').value = Math.round(o.op*100); $('#opVal').textContent = Math.round(o.op*100)+'%';
+    }
+  }
+  scroll.addEventListener('mousedown', e=>{
+    if(e.target===baseImg || e.target===scroll || e.target.classList.contains('stage-pad') || e.target===stage) select(null);
+  });
+
+  /* ---- ドラッグ / 拡大縮小 / 回転（すべて比率で更新） ---- */
+  function bindOverlay(o){
+    const el = o.el;
+    el.addEventListener('pointerdown', e=>{
+      if(e.target.classList.contains('handle')) return;
+      e.preventDefault(); select(o); el.style.cursor='grabbing';
+      const sx=e.clientX, sy=e.clientY, cx0=o.cx, cy0=o.cy, W=stageW(), H=stageH();
+      const move=ev=>{ o.cx=cx0+(ev.clientX-sx)/W; o.cy=cy0+(ev.clientY-sy)/H; render(o); };
+      const up=()=>{ el.style.cursor='grab'; document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up); };
+      document.addEventListener('pointermove',move); document.addEventListener('pointerup',up);
+    });
+    el.querySelector('.h-scale').addEventListener('pointerdown', e=>{
+      e.preventDefault(); e.stopPropagation(); select(o);
+      const rect=stage.getBoundingClientRect(), W=stageW(), H=stageH();
+      const cxpx=o.cx*W, cypx=o.cy*H;
+      const d0=Math.hypot(e.clientX-rect.left-cxpx, e.clientY-rect.top-cypx)||1, w0=o.w;
+      const move=ev=>{ const d=Math.hypot(ev.clientX-rect.left-cxpx, ev.clientY-rect.top-cypx);
+        o.w=Math.min(1.5, Math.max(.03, w0*(d/d0)));
+        $('#sizeRange').value=Math.min(150,Math.max(3,Math.round(o.w*100)));
+        $('#sizeVal').textContent=Math.round(o.w*100)+'%'; render(o); };
+      const up=()=>{ document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up); };
+      document.addEventListener('pointermove',move); document.addEventListener('pointerup',up);
+    });
+    el.querySelector('.h-rotate').addEventListener('pointerdown', e=>{
+      e.preventDefault(); e.stopPropagation(); select(o);
+      const rect=stage.getBoundingClientRect(), W=stageW(), H=stageH();
+      const cxpx=rect.left+o.cx*W, cypx=rect.top+o.cy*H;
+      const move=ev=>{ let a=Math.round(Math.atan2(ev.clientY-cypx, ev.clientX-cxpx)*180/Math.PI+90);
+        if(a>180)a-=360; if(a<-180)a+=360; o.rot=a;
+        $('#rotRange').value=a; $('#rotVal').textContent=a+'°'; render(o); };
+      const up=()=>{ document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up); };
+      document.addEventListener('pointermove',move); document.addEventListener('pointerup',up);
+    });
+  }
+
+  /* ---- スライダー ---- */
+  $('#sizeRange').oninput = e=>{ if(!selected)return; selected.w=(+e.target.value)/100; $('#sizeVal').textContent=e.target.value+'%'; render(selected); };
+  $('#rotRange').oninput  = e=>{ if(!selected)return; selected.rot=+e.target.value; $('#rotVal').textContent=e.target.value+'°'; render(selected); };
+  $('#opRange').oninput   = e=>{ if(!selected)return; selected.op=e.target.value/100; $('#opVal').textContent=e.target.value+'%'; render(selected); };
+  $('#btnFlip').onclick   = ()=>{ if(!selected)return; selected.flip=!selected.flip; render(selected); };
+  $('#btnDelete').onclick = ()=>{ if(!selected)return; selected.el.remove(); overlays=overlays.filter(v=>v!==selected); select(null); };
+
+  /* ---- ドラッグ＆ドロップ ---- */
+  ['dragover','drop'].forEach(t=>scroll.addEventListener(t,e=>e.preventDefault()));
+  scroll.addEventListener('drop', e=>{
+    const files=[...e.dataTransfer.files].filter(f=>f.type.startsWith('image/')); if(!files.length)return;
+    if(!view.ready) loadBase(files[0]);
+    else files.forEach(f=>addOverlay(URL.createObjectURL(f),(f.name||'スタンプ').replace(/\.[^.]+$/,'')));
+  });
+
+  /* ---- 書き出し（元解像度で合成） ---- */
+  $('#btnDownload').onclick = ()=>{
+    if(!view.ready) return;
+    const cv=document.createElement('canvas'); cv.width=view.natW; cv.height=view.natH;
+    const ctx=cv.getContext('2d'); ctx.drawImage(baseImg,0,0,view.natW,view.natH);
+    overlays.forEach(o=>{
+      const pw=o.w*view.natW, ph=pw*o.aspect, cx=o.cx*view.natW, cy=o.cy*view.natH;
+      ctx.save(); ctx.globalAlpha=o.op; ctx.translate(cx,cy); ctx.rotate(o.rot*Math.PI/180);
+      if(o.flip) ctx.scale(-1,1); ctx.drawImage(o.img,-pw/2,-ph/2,pw,ph); ctx.restore();
+    });
+    try{
+      cv.toBlob(blob=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+        a.download='デコ画像.png'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }, 'image/png');
+    }catch(err){
+      alert('画像を保存できませんでした（ブラウザのセキュリティ制限）。\n\n'
+          + '原因の多くは「ファイルをローカルで直接(file://)開いて試している」ことです。\n'
+          + 'naru にアップロードした本番サイト上では、画像とページが同じサイトになるため正常に保存できます。\n\n'
+          + 'ローカルで確認したい場合は、フォルダ内で簡易サーバーを起動し http://localhost で開いてください。');
+    }
+  };
+})();
+</script>
+</body>
+</html>
